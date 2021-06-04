@@ -1,8 +1,9 @@
+import sys
+
 
 class Bank:
     # A bank has a default cash bin and accounts
     def __init__(self):
-        self.cash_bin = 0
         self.card_info = {}
 
     def update_card_info(self, card_number, account, balance):
@@ -10,118 +11,127 @@ class Bank:
             self.card_info[card_number] = {account: balance}
 
         else:
-            self.card_info[card_number][account] = balance
+            self.card_info[card_number][account] += balance
 
     def transfer(self, card_number, account, amt, flag):
         card = self.card_info[card_number]
         if flag == 0:
             card[account] += amt
-            self.cash_bin += amt
         else:
             if card[account] >= amt:
                 card[account] -= amt
-                self.cash_bin -= amt
             else:
-                raise Exception("Unable to withdraw. Insufficient cash")
+                raise Exception(
+                    "Unable to withdraw. Insufficient cash in your account")
 
 
 class AtmController:
-    def __init__(self, bank):
-        # Is it Ok to initialize the bank system every time when a atm controller is newly created?
+    def __init__(self, bank, cash):
         self.bank = bank
+        self.cash_bin = cash
         self.card_number = ""
         self.account = ""
 
     # insert a card. A customer press his/her card number and pin number
-    def insert_card(self):
-        self.card_number = input("Please Press Your Card Number : ")
+    def insert_card(self, card_number):
+        if len(card_number) != 8:
+            raise Exception("Type Error: Card Number Should Be 8 Digits")
 
+        self.card_number = card_number
         if self.card_number not in self.bank.card_info:
-            print("Invalid card number. Please Check Your Card Number Again")
-            return self.insert_card()
+            raise Exception(
+                "Invalid Card Number: Please Check Your Card Number Again")
 
         else:
-            # This variable would be replaced with using a bank api. Only shows the result now.
-            self.check_pin(True)
+            return True
 
     def check_pin(self, flag):
         # You only knows whether the PIN number is correct or not.
         if flag != True:
-            "Wrong PIN Number. Please Press Correct PIN Number"
+            raise Exception(
+                "Wrong PIN Number: Please Press Correct PIN Number")
         else:
-            # Go to select account
-            self.select_account()
+            print("Welcome! Please Select Your Account")
+            accounts = list(self.bank.card_info[self.card_number].keys())
+            for i, v in enumerate(accounts):
+                print("{}.{}".format(i, v))
 
-    def select_account(self):
-        print("Please Select Your Account")
+            return True
+
+    def select_account(self, account):
 
         accounts = list(self.bank.card_info[self.card_number].keys())
-        for i, v in enumerate(accounts):
-            print("{}.{}".format(i, v))
 
-        try:
-            s = int(input("Press : "))
-            self.account = accounts[s]
-        except:
-            print("Index Out Of Range. Please Choose Valid Number")
-            self.select_account()
+        if account not in accounts:
+            raise Exception("Invalid Account: Please Select A Valid Account")
 
-        self.make_transaction()
-
-    def make_transaction(self):
-        print("Please Select A Number on Your Desired Transaction \n 1.SEE BALANCE \n 2.DEPOSIT \n 3.WITHDRAW \n")
-
-        # functions = [self.seeBalance, self.deposit, self.withdraw]
-
-        try:
-            choice = int(input("Press : "))
-        except:
-            print("Value Error Occurs. Please Press A Correct Number")
-            self.make_transaction()
-
-        if choice == 1:
-            self.see_balance()
-        elif choice == 2:
-            self.deposit()
         else:
-            self.withdraw()
+            print("Account Selected.")
+            self.account = account
+            return True, "Please Select A Number on Your Desired Transaction \n 1.SEE BALANCE \n 2.DEPOSIT \n 3.WITHDRAW \n"
+
+    def make_transaction(self, num, amt=0):
+
+        if num == 1:
+            self.see_balance()
+        elif num == 2:
+            self.deposit(amt)
+        elif num == 3:
+            self.withdraw(amt)
+        else:
+            raise Exception(
+                "Index Out Of Range: Please Choose Between 1 and 3")
 
     def see_balance(self):
-        print("Balance : {}".format(
+        print("Balance : ${}".format(
             self.bank.card_info[self.card_number][self.account]))
 
-    def deposit(self):
-
-        amt = int(input("Deposit Amount : "))
-
+    def deposit(self, amt):
         if amt <= 0:
-            print("Invalid Amount. Minimum Amount is $1")
-            self.deposit()
+            raise Exception("Unable to deposit: Minimum is $1")
         else:
             self.bank.transfer(self.card_number, self.account, amt, 0)
-            print("{} Deposited Successfully".format(amt))
+            print("${} Saved Successfully".format(amt))
 
-    def withdraw(self):
-
-        try:
-            amt = int(input("Amount Of Withdrawal : "))
-
-            self.bank.transfer(self.card_number, self.account, amt, 1)
-            print("${} withdrawn from your account. Thank you.".format(amt))
-        except ValueError as e:
-            print("Unable to handle : Please Press Number")
-            self.withdraw()
-        except Exception as e:
-            print("Unable to withdraw : Insufficient Cash.")
-            self.withdraw()
+    def withdraw(self, amt):
+        if amt <= 0:
+            raise Exception("Unable to withdraw: Minimum is $1")
+        else:
+            try:
+                self.bank.transfer(self.card_number, self.account, amt, 1)
+                print("${} Withdrawn From Your Account. Thank You.".format(amt))
+            except Exception as e:
+                print(e)
 
 
 def main():
-    bank = Bank()
-    bank.update_card_info('12341234', '123-123-1234', 100)
 
-    atm = AtmController(bank)
-    atm.insert_card()
+    if sys.version_info < (3, 8, 3):
+        sys.exit("Please Use Python 3.8.3 or Above")
+
+    # Initialize Bank class -- a card number should be 8 digits
+    ibank = Bank()
+    ibank.update_card_info('12341234', '123-123-1234', 100)
+    ibank.update_card_info('23452345', '123-234-3456', 500)
+    ibank.update_card_info('34567890', '123-456-4567', 300)
+    ibank.update_card_info('12341234', '123-123-1234', 200)
+
+    # Create an atem controller connected to ibank, which has $100 in cash bin.
+    atm = AtmController(ibank, 100)
+
+    res = atm.insert_card('12341234')
+    res = atm.check_pin(res)
+    res, msg = atm.select_account('123-123-1234')
+    print(msg)
+
+    atm.make_transaction(1)
+    # Deposit $100 and See the balance
+    atm.make_transaction(2, 100)
+    atm.make_transaction(1)
+
+    # Withdraw $200 and See The Balance
+    atm.make_transaction(3, 200)
+    atm.make_transaction(1)
 
 
 if __name__ == '__main__':
